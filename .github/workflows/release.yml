@@ -50,12 +50,12 @@ jobs:
 
     - name: Build client
       run: |
-        env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -o build/client-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./client/client.go
+        env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -o build/client-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/client/main.go
       working-directory: . # Ensure command runs from the root of the repository
 
     - name: Build server
       run: |
-        env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -o build/server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./server/server.go
+        env GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} CGO_ENABLED=0 go build -o build/server-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.ext }} ./cmd/server/main.go
       working-directory: . # Ensure command runs from the root of the repository
 
     - name: Upload client artifact
