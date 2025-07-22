@@ -227,7 +227,7 @@ func (i *TCPInbound) Accept() (net.Conn, error) {
 		serverPaddingRule = 0x00
 	}
 
-	return newVyperConn(rawConn, serverPaddingRule, i.paddingPatterns), nil // 使用通用函数
+	return NewVyperConn(rawConn, serverPaddingRule, i.paddingPatterns), nil // 使用通用函数
 }
 
 // Close 关闭入站器，停止接受新的连接。
