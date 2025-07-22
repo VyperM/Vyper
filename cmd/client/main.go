@@ -2,7 +2,7 @@ package main
 
 import (
 	"log"
-	"os"
+	"fmt"
 	"path/filepath"
 
 	"github.com/UltraTLS/UltraTLS/client" // 导入客户端包
