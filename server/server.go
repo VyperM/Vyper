@@ -154,7 +154,7 @@ func StartServer(cfg *ServerConfig) error {
 			// The server-side padding rule is determined by the client's InitialPaddingRule
 			// and the server's configured PaddingPatterns.
 			// The newVyperConn function (assumed to be in protocol package) handles this.
-			vyperConn := protocol.NewVyperConn(rawConn, byte(initFrame.InitialPaddingRule), cfg.VyperConfig.PaddingPatterns)
+			vyperConn := protocol.newVyperConn(rawConn, byte(initFrame.InitialPaddingRule), cfg.VyperConfig.PaddingPatterns)
 			
 			session := protocol.NewSession(vyperConn) // Use the vyperConn for the Mux session
 			defer session.Close()
