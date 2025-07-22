@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http" // 用于完整的HTTP请求和响应处理
 	"net/url" // 用于解析URL
 	"time"
