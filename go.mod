@@ -1,4 +1,4 @@
-module github.com/UltraTLS/UltraTLS
+module github.com/VyperM/Vyper
 
 go 1.24
 

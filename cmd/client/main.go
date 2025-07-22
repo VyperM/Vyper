@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/UltraTLS/UltraTLS/client" // 导入客户端包
-	"github.com/UltraTLS/UltraTLS/config" // 导入配置包
+	"github.com/VyperM/Vyper/client" // 导入客户端包
+	"github.com/VyperM/Vyper/config" // 导入配置包
 )
 
 func main() {

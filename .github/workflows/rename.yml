@@ -21,14 +21,6 @@ jobs:
         # Use find with xargs and sed for efficient batch replacement
         run: |
           find . -type f -name "*.go" -print0 | xargs -0 sed -i 's|github.com/UltraTLS/UltraTLS|github.com/VyperM/Vyper|g'
-
-      # Step 3: Update module name in go.mod file
-      - name: Update go.mod
-        run: |
-          # Ensure Go language environment is installed
-          sudo apt-get update && sudo apt-get install golang-go
-          # Use go mod edit command to update module name
-          go mod edit -module github.com/VyperM/Vyper
           
       # Step 4: Configure Git user for commit
       - name: Configure Git User

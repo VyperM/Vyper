@@ -13,8 +13,8 @@ import (
 	"net/url" // Used for URL parsing
 	"time"
 
-	"github.com/UltraTLS/UltraTLS/protocol" // Assuming the protocol package is here
-	"github.com/UltraTLS/UltraTLS/config"
+	"github.com/VyperM/Vyper/protocol" // Assuming the protocol package is here
+	"github.com/VyperM/Vyper/config"
 	"github.com/v2fly/v2ray-core/v5/common/net" // Assuming this package is available
 )
 
