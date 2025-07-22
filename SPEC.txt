@@ -1,0 +1,488 @@
+Network Working Group                                      [Your Name/Org]
+Internet-Draft                                               July 14, 2025
+Intended status: Standards Track
+Expires: January 14, 2026
+
+                     The Vyper Protocol Specification
+                    draft-[yourname]-vyper-protocol-00
+
+Abstract
+
+The Vyper Protocol is a streamlined, TCP-based proxy protocol designed
+for secure and obfuscated data tunneling over TLS. It aims to provide a
+minimalist yet effective solution for bypassing network restrictions
+by mimicking standard TLS traffic. Vyper focuses on a novel, dynamic
+padding scheme and eschews built-in multiplexing or heartbeating,
+delegating these functionalities to higher-layer protocols or underlying
+network mechanisms.
+
+Status of This Memo
+
+This Internet-Draft is submitted in full conformance with the
+provisions of BCP 78 and BCP 79.
+
+Internet-Drafts are working documents of the Internet Engineering
+Task Force (IETF). Note that other groups may also distribute
+working documents as Internet-Drafts. The list of current Internet-Drafts
+is at https://datatracker.ietf.org/drafts/current/.
+
+Internet-Drafts are draft documents valid for a maximum of six months
+and may be updated, replaced, or obsoleted by other documents at any
+time. It is inappropriate to use Internet-Drafts as reference material
+or to cite them other than as "work in progress."
+
+This Internet-Draft will expire on January 14, 2026.
+
+Copyright Notice
+
+Copyright (c) 2025 IETF Trust and the persons identified as the
+document authors. All rights reserved.
+
+This document is subject to BCP 78 and the IETF Trust's Legal
+Provisions Relating to IETF Documents
+(https://trustee.ietf.org/license-info) in effect on the date of
+publication of this document. Please review these documents
+carefully, as they describe your rights and restrictions with respect
+to this document. Code Components extracted from this document must
+include Revised BSD License text as described in Section 4.e of
+the Trust Legal Provisions and are provided without warranty as
+described in the Revised BSD License.
+
+Table of Contents
+
+   1. Introduction
+      1.1. Motivation
+      1.2. Protocol Goals
+   2. Terminology
+   3. Protocol Stack
+   4. Connection Establishment
+      4.1. TLS Handshake
+      4.2. Vyper Initialization Frame
+   5. Vyper Session Frames
+      5.1. Frame Structure
+      5.2. Frame Types
+         5.2.1. REQ_FRAME (0x01)
+         5.2.2. DATA_FRAME (0x02)
+         5.2.3. FLOW_FRAME (0x03)
+         5.2.4. CLOSE_FRAME (0x04)
+         5.2.5. ERR_FRAME (0x05)
+         5.2.6. PAD_FRAME (0x06)
+   6. Obfuscation Padding Scheme
+      6.1. Dynamic Burst Negotiation
+      6.2. Random Interleaving
+      6.3. Lack of "Stop" Counter
+   7. Connection Management
+   8. Security Considerations
+   9. IANA Considerations
+   10. References
+      10.1. Normative References
+      10.2. Informative References
+   Author's Address
+
+1. Introduction
+
+1.1. Motivation
+
+The proliferation of network censorship and active probing mechanisms
+necessitates the development of flexible and robust tunneling protocols.
+Existing solutions often trade off simplicity for features, or become
+predictable in their traffic patterns, making them susceptible to
+detection and blocking. The Vyper Protocol aims to strike a balance,
+providing strong obfuscation capabilities without unnecessary complexity.
+
+1.2. Protocol Goals
+
+The primary goals of the Vyper Protocol are:
+   * **Stealth:** Mimic standard TLS traffic to evade deep packet
+      inspection (DPI) and active probing.
+   * **Obfuscation:** Incorporate a dynamic and unpredictable padding
+      scheme to further disguise traffic patterns.
+   * **Efficiency:** Maintain a lean protocol overhead by focusing on
+      core proxy functionality.
+   * **Simplicity:** Minimize complexity by delegating functionalities
+      like multiplexing (e.g., via Mux.Cool [RFCXXXX]) and heartbeating
+      to higher or lower layers.
+   * **TCP-Centric:** Designed specifically for TCP proxying.
+
+2. Terminology
+
+The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+"SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY",
+and "OPTIONAL" in this document are to be interpreted as described in
+BCP 14 [RFC2119] [RFC8174] when they appear in all capitals, as shown
+here.
+
+* **Client:** The initiating endpoint of a Vyper connection, typically
+    running on a user's device.
+* **Server:** The responding endpoint of a Vyper connection, typically
+    running on a remote server.
+* **TLS:** Transport Layer Security, as defined in [RFC8446].
+* **OS Connection:** A single TCP connection over TLS running the
+    Vyper Protocol, dedicated to proxying a single application stream.
+* **Auth Blob:** A client-generated, fixed-size random byte sequence
+    used for connection authentication.
+* **Padding Burst Pattern:** A sequence of length ranges for
+    `PAD_FRAME`s used for traffic obfuscation.
+
+3. Protocol Stack
+
+The Vyper Protocol operates directly above the TLS layer. A typical
+protocol stack involving Vyper would be:
+
+    Application Proxy (e.g., SOCKS5)
+            |
+      Vyper Protocol
+            |
+       TLS (RFC 8446)
+            |
+      TCP (RFC 9293)
+            |
+      IP (RFC 791)
+
+Implementations MAY integrate higher-level multiplexing protocols
+(e.g., Mux.Cool [RFCXXXX]) above the Vyper Protocol layer to enable
+multiple application streams over a single OS Connection.
+
+4. Connection Establishment
+
+4.1. TLS Handshake
+
+The Vyper Client MUST first establish a standard TLS connection with
+the Vyper Server. All subsequent Vyper protocol data MUST be
+encapsulated within this secure TLS tunnel.
+
+4.2. Vyper Initialization Frame
+
+Immediately following a successful TLS handshake, the Vyper Client
+MUST send a single Vyper Initialization Frame to the Server. This frame
+combines authentication material with initial padding instructions.
+
+The Vyper Initialization Frame has the following structure:
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |    AuthBlob Length            |  AuthBlob (variable length)   ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
+  ...                                                              ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  | InitialPaddingRule    |           Reserved (3 bytes)          |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |    ClientInfo Length          |  ClientInfo (variable length) ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
+  ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+* **AuthBlob Length (2 bytes, Big-Endian uint16):**
+    The length, in bytes, of the `AuthBlob` field. This field MUST be
+    present.
+* **AuthBlob (variable length):**
+    A client-generated, fixed-size random byte sequence (e.g., 32 bytes
+    or 64 bytes, configured out-of-band). The Server MUST verify this
+    `AuthBlob` against a pre-shared secret or policy. If the `AuthBlob`
+    is invalid, the Server SHOULD immediately close the connection.
+    Alternatively, the Server MAY implement an L7 fallback mechanism
+    (e.g., serving HTTP content) to further disguise connection attempts.
+* **InitialPaddingRule (1 byte, uint8):**
+    A single byte that dictates the initial padding behavior for the
+    Client's outbound frames within this Vyper connection. This byte
+    serves as an index or flag to a pre-defined or dynamically
+    negotiated padding burst pattern.
+    * `0x00`: No active padding initiated by the Client (padding only
+        occurs if necessary to meet minimum TLS frame size requirements).
+    * `0x01` to `0xFE`: An index to a specific "Padding Burst Pattern"
+        known to both Client and Server (configured out-of-band).
+    * `0xFF`: Indicates that the Client requests the Server to dictate
+        the effective padding pattern for this connection, or to use a
+        default server-side pattern.
+* **Reserved (3 bytes):**
+    Reserved for future use. These bytes MUST be set to `0x000000` by
+    the Client and MUST be ignored by the Server.
+* **ClientInfo Length (2 bytes, Big-Endian uint16):**
+    The length, in bytes, of the `ClientInfo` field. This field MUST be
+    present.
+* **ClientInfo (variable length):**
+    An OPTIONAL UTF-8 encoded string providing details about the client
+    software (e.g., "VyperClient/1.0.0"). This field MAY be empty
+    (i.e., `ClientInfo Length` is 0).
+
+Upon receiving a valid Vyper Initialization Frame, the Server stores the
+`InitialPaddingRule` and `ClientInfo`. The Server then implicitly
+transitions to waiting for the first Vyper Session Frame (`REQ_FRAME`)
+from the Client. The Server MUST NOT send any immediate response frame
+to avoid creating predictable handshake patterns.
+
+5. Vyper Session Frames
+
+After the Vyper Initialization Frame exchange (or lack thereof from the
+server), all subsequent communication within the Vyper connection MUST
+be carried in Vyper Session Frames.
+
+5.1. Frame Structure
+
+All Vyper Session Frames share a common header structure:
+
+   0                   1                   2                   3
+   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |  FrameType    |                 Sequence (4 bytes)            |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |    Content Length             |        Content (variable)     ...
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-------------------------------+
+  ...
+
+* **FrameType (1 byte, uint8):**
+    Identifies the type of the Vyper Session Frame. See Section 5.2.
+* **Sequence (4 bytes, Big-Endian uint32):**
+    A monotonically increasing sequence number, unique for each Vyper
+    Session Frame type that carries logical flow (i.e., `REQ_FRAME`,
+    `DATA_FRAME`, `FLOW_FRAME`, `CLOSE_FRAME`). `PAD_FRAME` and
+    `ERR_FRAME` MAY use a `Sequence` of 0, or increment it; however,
+    their `Sequence` is not expected to be acknowledged or ordered
+    strictly relative to other frame types. This field assists in
+    ordering and detecting potential frame loss.
+* **Content Length (2 bytes, Big-Endian uint16):**
+    The length, in bytes, of the `Content` field. Maximum `Content
+    Length` is 65535 bytes.
+* **Content (variable length):**
+    The payload of the frame, whose format and meaning depend on the
+    `FrameType`.
+
+5.2. Frame Types
+
+5.2.1. REQ_FRAME (0x01)
+
+The `REQ_FRAME` is sent by the Client to initiate a TCP proxy request
+to a target address.
+
+* **Sender:** Client.
+* **Content:** Contains the target address for proxying, formatted
+    according to the SOCKS5 ATYP (Address Type + Address + Port) as
+    defined in [RFC1928], Section 5.
+    * Example: For "example.com:80", Content might be `0x03 0x0B example.com 0x0050`.
+* **Client Action:** Sends a single `REQ_FRAME` at the beginning of a
+    new proxy request for a given Vyper connection.
+* **Server Action:**
+    * Upon receiving a `REQ_FRAME`, the Server MUST attempt to establish
+        a TCP connection to the specified target address and port.
+    * If the connection to the target is successfully established: The
+        Server MUST NOT send any explicit response frame. It implicitly
+        transitions to bidirectional data relay, expecting `DATA_FRAME`s
+        from the Client and sending `DATA_FRAME`s from the target.
+    * If the connection to the target fails: The Server MUST send an
+        `ERR_FRAME` (Section 5.2.5) with `Content` describing the error
+        (e.g., "Target unreachable", "Connection refused"). After sending
+        the `ERR_FRAME`, the Server MUST immediately close the Vyper
+        connection.
+
+5.2.2. DATA_FRAME (0x02)
+
+The `DATA_FRAME` carries the actual proxied application data.
+
+* **Sender:** Client or Server.
+* **Content:** Raw bytes of the proxied data.
+* **Behavior:** Senders MAY fragment large data streams into multiple
+    `DATA_FRAME`s. Receivers MUST reassemble `Content` from consecutive
+    `DATA_FRAME`s (identified by `Sequence` if necessary) to reconstruct
+    the original data stream.
+
+5.2.3. FLOW_FRAME (0x03)
+
+The `FLOW_FRAME` provides a lightweight acknowledgement mechanism to
+confirm receipt of `DATA_FRAME`s and assist in detecting connection stalls.
+
+* **Sender:** Client or Server.
+* **Content:** A 4-byte Big-Endian uint32 representing the `Sequence`
+    number of the last `DATA_FRAME` successfully received from the
+    *other* side.
+* **Behavior:** Senders SHOULD periodically send `FLOW_FRAME`s to
+    acknowledge received data. Receivers process the `Sequence` value
+    to update their understanding of the peer's received data. This frame
+    does not imply retransmission requests; it is purely for status and
+    liveness detection.
+
+5.2.4. CLOSE_FRAME (0x04)
+
+The `CLOSE_FRAME` signals the graceful closure of the data stream from
+one side.
+
+* **Sender:** Client or Server.
+* **Content:** Empty (`Content Length` MUST be 0).
+* **Behavior:**
+    * When a sender's underlying TCP connection (or higher-layer stream
+        like Mux.Cool) closes or reaches EOF, the sender MUST transmit a
+        `CLOSE_FRAME` to the peer.
+    * Upon receiving a `CLOSE_FRAME`, the receiver MUST close its write
+        half of the corresponding Vyper connection.
+    * The Vyper connection is considered fully terminated when both sides
+        have sent (or implicitly acknowledged the closure of) a `CLOSE_FRAME`,
+        or if one side closes the entire underlying TLS connection due to
+        timeout or other errors.
+
+5.2.5. ERR_FRAME (0x05)
+
+The `ERR_FRAME` is sent by the Server to indicate an error that prevents
+the successful continuation of the proxy session.
+
+* **Sender:** Server.
+* **Content:** A UTF-8 encoded string providing a human-readable
+    description of the error (e.g., "Target connection refused",
+    "Protocol violation").
+* **Client Action:** Upon receiving an `ERR_FRAME`, the Client MUST
+    log the error message and immediately terminate the Vyper connection.
+
+5.2.6. PAD_FRAME (0x06)
+
+The `PAD_FRAME` is used exclusively for traffic obfuscation by adding
+arbitrary data.
+
+* **Sender:** Client or Server.
+* **Content:** Arbitrary random or predefined bytes. The `Content
+    Length` determines the size of the padding.
+* **Behavior:** Receivers MUST read the `Content` completely and then
+    discard it silently. `PAD_FRAME`s do not carry operational data and
+    do not affect the logical flow or `Sequence` of other frames. Their
+    placement and size are governed by the padding scheme described in
+    Section 6.
+
+6. Obfuscation Padding Scheme
+
+Vyper employs a dynamic, per-connection padding scheme designed to
+disguise traffic volume and timing patterns. This scheme avoids static
+or predictable padding behaviors.
+
+6.1. Dynamic Burst Negotiation
+
+The padding behavior is primarily controlled by the `InitialPaddingRule`
+specified in the Vyper Initialization Frame (Section 4.2).
+
+* **Padding Burst Patterns:** Both Client and Server are configured
+    out-of-band with a set of "Padding Burst Patterns." Each pattern is
+    a sequence of tuples, where each tuple specifies a `(minimum_length,
+    maximum_length)` range for a `PAD_FRAME`.
+    * Example Pattern `P1`: `[(50, 100), (120, 200)]` - suggests sending
+        a `PAD_FRAME` between 50-100 bytes, followed by another between
+        120-200 bytes as part of a single burst.
+    * Example Pattern `P2`: `[(10, 20), (10, 20), (10, 20), (10, 20), (10, 20)]`
+        - suggests sending five small `PAD_FRAME`s.
+* **Client-Initiated Pattern:** If `InitialPaddingRule` is `0x01`
+    to `0xFE`, the Client explicitly requests to use the Padding Burst
+    Pattern corresponding to that index. The Client MUST generate
+    `PAD_FRAME`s following this pattern.
+* **Server-Dictated Pattern:** If `InitialPaddingRule` is `0xFF`,
+    the Client requests the Server to dictate the padding behavior. The
+    Server MAY then choose a default pattern or dynamically select one
+    based on observed network conditions or client characteristics. The
+    Server then generates `PAD_FRAME`s for its outbound traffic and
+    expects the Client to implicitly adapt to a similar pattern for its
+    outbound traffic (though the Client doesn't strictly adhere to server-sent
+    padding for its own traffic, it can learn from failures).
+* **No Active Padding (0x00):** If `InitialPaddingRule` is `0x00`,
+    the Client will not actively send `PAD_FRAME`s unless required by
+    the underlying TLS layer to meet minimum frame size requirements.
+* **Adaptive Behavior:** Clients MAY be implemented to try different
+    `InitialPaddingRule` values for subsequent Vyper connections if
+    previous connections experience failures (e.g., connection reset,
+    timeout without `ERR_FRAME`), effectively adapting their disguise. The
+    Vyper Protocol itself does not include explicit in-band mechanisms for
+    the Server to command the Client to change its padding pattern during an
+    active session.
+
+6.2. Random Interleaving
+
+`PAD_FRAME`s can be interspersed randomly with other Vyper Session Frames.
+A sender following a Padding Burst Pattern MAY send `PAD_FRAME`s
+immediately after a `DATA_FRAME` or `REQ_FRAME`, or at other seemingly
+random intervals, as long as it does not disrupt the logical flow and
+ordering of other frames based on their `Sequence` numbers. This
+randomization further breaks deterministic traffic signatures.
+
+6.3. Lack of "Stop" Counter
+
+Unlike some other protocols, Vyper's padding scheme does not employ a
+fixed "packet counter" or a "stop" mechanism that would predictably
+end the padding phase. Padding, if enabled by the `InitialPaddingRule`,
+remains active throughout the lifetime of the Vyper connection,
+adapting its frequency and size based on the chosen Padding Burst
+Pattern. This continuous and dynamic nature avoids creating identifiable
+signatures related to the cessation of padding.
+
+7. Connection Management
+
+* **Single Stream per Connection:** Each Vyper connection (operating
+    over one TLS tunnel) is dedicated to proxying a single TCP application
+    stream. Vyper does not implement internal multiplexing of multiple
+    application streams over a single OS Connection. Higher-layer protocols
+    like Mux.Cool [RFCXXXX] are intended to provide this functionality.
+* **No Built-in Heartbeating:** The Vyper Protocol intentionally
+    omits a dedicated heartbeating mechanism. Underlying TCP Keepalives or
+    higher-layer protocols (e.g., within Mux.Cool) are responsible for
+    detecting and managing idle connections.
+* **Error Termination:** The Server can use the `ERR_FRAME` to signal
+    unrecoverable errors and initiate connection termination. The Client
+    MUST honor such termination requests.
+
+8. Security Considerations
+
+   * **TLS Security:** The security of the Vyper Protocol heavily relies
+      on the underlying TLS implementation. Implementations MUST use
+      up-to-date TLS versions (e.g., TLS 1.3 [RFC8446]) and strong
+      cryptographic suites. Proper certificate validation (including SNI
+      verification for the Server) is crucial to prevent man-in-the-middle
+      attacks.
+   * **AuthBlob Secrecy:** The `AuthBlob` mechanism provides a basic
+      layer of access control. The pre-shared secret used for `AuthBlob`
+      verification MUST be kept confidential. Brute-forcing attempts against
+      the `AuthBlob` can be mitigated by Server-side rate limiting or IP
+      blacklisting.
+   * **Padding Effectiveness:** While the padding scheme is designed to
+      obfuscate traffic, its effectiveness against sophisticated
+      adversaries depends on the chosen Padding Burst Patterns and their
+      ability to blend with legitimate TLS traffic. Patterns SHOULD be
+      randomized and varied to avoid simple statistical analysis.
+   * **L7 Fallback:** If an L7 fallback (e.g., HTTP server) is
+      implemented for failed authentications, care must be taken to ensure
+      that the fallback itself does not reveal the presence of a proxy
+      server.
+   * **Resource Exhaustion:** Servers MUST implement measures to prevent
+      resource exhaustion attacks (e.g., too many pending connections,
+      excessive data in `DATA_FRAME`s, or high rates of `REQ_FRAME`s)
+      from malicious clients.
+
+9. IANA Considerations
+
+This document has no IANA actions.
+
+10. References
+
+10.1. Normative References
+
+   [RFC1928] IETF. "SOCKS Protocol Version 5", RFC 1928, March 1996.
+             <https://www.rfc-editor.org/info/rfc1928>
+
+   [RFC2119] Bradner, S., "Key words for use in RFCs to Indicate
+             Requirement Levels", BCP 14, RFC 2119, March 1997.
+             <https://www.rfc-editor.org/info/rfc2119>
+
+   [RFC8174] Leiba, B., "Ambiguity of OMITTED-TEXT-STYLE-KEYWORD",
+             BCP 14, RFC 8174, May 2017.
+             <https://www.rfc-editor.org/info/rfc8174>
+
+   [RFC8446] Rescorla, E., "The Transport Layer Security (TLS) Protocol
+             Version 1.3", RFC 8446, August 2018.
+             <https://www.rfc-editor.org/info/rfc8446>
+
+   [RFC9293] Eddy, K., Ed., "Transmission Control Protocol (TCP)",
+             STD 7, RFC 9293, August 2022.
+             <https://www.rfc-editor.org/info/rfc9293>
+
+10.2. Informative References
+
+   [Mux.Cool SPEC] KSLR, "Mux.Cool Protocol"
+             <https://www.v2fly.org/developer/protocols/muxcool.html>
+
+Author's Address
+
+   [Your Name]
+   [Your Organization, if applicable]
+   [Your Email Address, if applicable]
