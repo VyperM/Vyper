@@ -41,7 +41,7 @@ type TCPInbound struct {
 	tlsConfig       *tls.Config     // 可选的 TLS 配置，如果为 nil 则进行普通 TCP 监听
 	authToken       string          // Vyper 协议的 AuthToken，用于认证
 	fallbackAddress string          // 认证失败时的 L7 回退地址
-	paddingPatterns [][]int         // 服务器定义的填充模式列表
+	paddingPatterns [][][]int       // 服务器定义的填充模式列表 (类型修正)
 	mu              sync.Mutex      // 互斥锁，用于保护 closed 字段和 listener
 	closed          bool            // 标记 Inbound 是否已关闭
 }
@@ -58,7 +58,7 @@ func NewTCPInbound(addr string) *TCPInbound {
 // authToken 是 Vyper 协议的认证令牌。
 // fallbackAddress 是认证失败时的 HTTP 回退地址。
 // paddingPatterns 是服务器定义的填充模式列表。
-func NewTLSInbound(addr string, tlsConfig *tls.Config, authToken, fallbackAddress string, paddingPatterns [][]int) *TCPInbound {
+func NewTLSInbound(addr string, tlsConfig *tls.Config, authToken, fallbackAddress string, paddingPatterns [][][]int) *TCPInbound {
 	return &TCPInbound{
 		addr:            addr,
 		tlsConfig:       tlsConfig,
