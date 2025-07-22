@@ -1,16 +1,11 @@
 package client
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"crypto/tls"
-	"encoding/base64"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"log"
 	"net"
-	"net/http" // 用于构建伪HTTP请求
 	"sync"     // 引入 sync 包用于 WaitGroup
 	"time"
 
