@@ -12,18 +12,19 @@ import (
 	"github.com/v2fly/v2ray-core/v5/common/protocol"
 )
 
-// Stream 代表一个独立的子连接（无论TCP还是UDP）
-// 现在实现 net.Conn 接口
+// Stream represents an independent sub-connection (whether TCP or UDP)
+// Now implements the net.Conn interface
 type Stream interface {
 	io.ReadWriteCloser
 	StreamID() uint32
 	net.Conn
+	Destination() v2net.Destination // Added Destination() method to the interface
 }
 
 type v2Stream struct {
 	conn         net.Conn
 	session      *v2mux.Session
-	dest         v2net.Destination
+	dest         v2net.Destination // The destination for this stream
 	closed       bool
 	rLock, wLock sync.Mutex
 }
@@ -84,7 +85,12 @@ func (s *v2Stream) StreamID() uint32 {
 	return uint32(s.session.ID)
 }
 
-// === 实现 net.Conn 接口 ===
+// Destination returns the target destination of this stream.
+func (s *v2Stream) Destination() v2net.Destination {
+	return s.dest
+}
+
+// === Implement net.Conn Interface ===
 
 func (s *v2Stream) LocalAddr() net.Addr {
 	if s.conn != nil {
