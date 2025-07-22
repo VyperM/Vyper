@@ -10,7 +10,6 @@ import (
 	"github.com/UltraTLS/UltraTLS/config"   // Import config package
 	"github.com/UltraTLS/UltraTLS/protocol" // Import protocol package
 	"github.com/UltraTLS/UltraTLS/server"   // Import server package
-	v2net "github.com/v2fly/v2ray-core/v5/common/net" // Import v2net
 )
 
 // NewErrFrame creates a new ERR_FRAME.
