@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http" // Used for full HTTP request and response handling
 	"net/url" // Used for URL parsing
 	"time"
