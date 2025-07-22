@@ -9,8 +9,8 @@ import (
 	"sync"     // 引入 sync 包用于 WaitGroup
 	"time"
 
-	"github.com/UltraTLS/UltraTLS/config"
-	"github.com/UltraTLS/UltraTLS/protocol" // 假设 protocol 包在这里
+	"github.com/VyperM/Vyper/config"
+	"github.com/VyperM/Vyper/protocol" // 假设 protocol 包在这里
 	v2net "github.com/v2fly/v2ray-core/v5/common/net" // 引入 v2net
 )
 

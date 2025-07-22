@@ -7,9 +7,9 @@ import (
 	"net"
 	"sync" // Import sync package for WaitGroup
 
-	"github.com/UltraTLS/UltraTLS/config"   // Import config package
-	"github.com/UltraTLS/UltraTLS/protocol" // Import protocol package
-	"github.com/UltraTLS/UltraTLS/server"   // Import server package
+	"github.com/VyperM/Vyper/config"   // Import config package
+	"github.com/VyperM/Vyper/protocol" // Import protocol package
+	"github.com/VyperM/Vyper/server"   // Import server package
 )
 
 // NewErrFrame creates a new ERR_FRAME.
